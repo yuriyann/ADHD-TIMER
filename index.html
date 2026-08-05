@@ -1,0 +1,159 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>カラータイマー・スケジュール</title>
+  <style>
+    :root {
+      --bg-color: #2196F3;
+    }
+    body {
+      font-family: sans-serif;
+      margin: 0;
+      padding: 20px;
+      background-color: var(--bg-color);
+      color: #fff;
+      transition: background-color 0.5s ease;
+    }
+    .card {
+      background: rgba(255, 255, 255, 0.2);
+      backdrop-filter: blur(10px);
+      border-radius: 12px;
+      padding: 16px;
+      margin-bottom: 16px;
+      box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+    }
+    .progress-bar-container {
+      background: rgba(255, 255, 255, 0.3);
+      border-radius: 8px;
+      height: 16px;
+      width: 100%;
+      overflow: hidden;
+      margin-top: 8px;
+    }
+    .progress-bar {
+      height: 100%;
+      width: 100%;
+      background-color: #fff;
+      transition: width 0.5s linear, background-color 0.5s ease;
+    }
+    input, button {
+      padding: 8px;
+      border-radius: 4px;
+      border: none;
+      margin-top: 4px;
+    }
+    button {
+      background-color: #fff;
+      color: #333;
+      font-weight: bold;
+      cursor: pointer;
+    }
+  </style>
+</head>
+<body>
+
+  <h1>スケジュール管理</h1>
+
+  <div class="card">
+    <h3>アラート時間の設定 (分)</h3>
+    <label>黄色に変わる時間: 
+      <input type="number" id="yellowThreshold" value="60" min="1"> 分前
+    </label><br><br>
+    <label>赤色に変わる時間: 
+      <input type="number" id="redThreshold" value="30" min="1"> 分前
+    </label>
+  </div>
+
+  <div class="card">
+    <h3>新しい予定を追加</h3>
+    <input type="text" id="eventTitle" placeholder="予定のタイトル">
+    <input type="datetime-local" id="eventTime">
+    <button onclick="addEvent()">追加</button>
+  </div>
+
+  <div id="scheduleList"></div>
+
+  <script>
+    let events = [];
+
+    function addEvent() {
+      const title = document.getElementById('eventTitle').value;
+      const time = document.getElementById('eventTime').value;
+      if (!title || !time) return;
+
+      events.push({
+        id: Date.now(),
+        title: title,
+        targetTime: new Date(time).getTime()
+      });
+
+      document.getElementById('eventTitle').value = '';
+      document.getElementById('eventTime').value = '';
+      updateUI();
+    }
+
+    function updateUI() {
+      const list = document.getElementById('scheduleList');
+      list.innerHTML = '';
+
+      const now = new Date().getTime();
+      const yellowMin = parseInt(document.getElementById('yellowThreshold').value) || 60;
+      const redMin = parseInt(document.getElementById('redThreshold').value) || 30;
+
+      let closestRemainingSec = Infinity;
+
+      events.sort((a, b) => a.targetTime - b.targetTime);
+
+      events.forEach(item => {
+        const remainingSec = Math.floor((item.targetTime - now) / 1000);
+        const remainingMin = remainingSec / 60;
+
+        if (remainingSec > 0 && remainingSec < closestRemainingSec) {
+          closestRemainingSec = remainingSec;
+        }
+
+        let color = '#2196F3';
+        if (remainingMin <= redMin) {
+          color = '#F44336';
+        } else if (remainingMin <= yellowMin) {
+          color = '#FFC107';
+        }
+
+        let progressPercent = Math.max(0, Math.min(100, (remainingMin / yellowMin) * 100));
+        if (remainingMin <= 0) progressPercent = 0;
+
+        const mins = Math.floor(Math.max(0, remainingSec) / 60);
+        const secs = Math.max(0, remainingSec) % 60;
+        const timeText = remainingSec > 0 
+          ? `残り ${mins}分 ${secs}秒` 
+          : '時間になりました';
+
+        const card = document.createElement('div');
+        card.className = 'card';
+        card.innerHTML = `
+          <strong>${item.title}</strong> - ${timeText}
+          <div class="progress-bar-container">
+            <div class="progress-bar" style="width: ${progressPercent}%; background-color: ${color};"></div>
+          </div>
+        `;
+        list.appendChild(card);
+      });
+
+      if (closestRemainingSec !== Infinity) {
+        const closestMin = closestRemainingSec / 60;
+        if (closestMin <= redMin) {
+          document.documentElement.style.setProperty('--bg-color', '#e53935');
+        } else if (closestMin <= yellowMin) {
+          document.documentElement.style.setProperty('--bg-color', '#f57f17');
+        } else {
+          document.documentElement.style.setProperty('--bg-color', '#1e88e5');
+        }
+      }
+    }
+
+    setInterval(updateUI, 1000);
+  </script>
+</body>
+</html>
