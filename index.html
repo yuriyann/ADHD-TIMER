@@ -14,11 +14,10 @@
       font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
       margin: 0;
       padding: 16px;
-      background-color: #f0f2f5; /* ライトグレー */
+      background-color: #f0f2f5;
       color: #333;
     }
     
-    /* ヘッダー周り */
     .header {
       display: flex;
       justify-content: space-between;
@@ -139,6 +138,7 @@
       color: #fff;
       box-shadow: 0 2px 6px rgba(0,0,0,0.08);
       transition: background-color 0.5s ease;
+      cursor: pointer;
     }
     .card-blue { background-color: var(--bg-blue); }
     .card-yellow { background-color: var(--bg-yellow); color: #333; }
@@ -186,19 +186,20 @@
   </div>
 
   <div class="top-actions">
-    <span style="font-size: 0.85rem; color: #666;">※期限が近い順</span>
+    <span style="font-size: 0.85rem; color: #666;">※期限が近い順（タップで編集）</span>
     <button class="btn btn-danger" style="padding: 4px 8px; font-size: 0.8rem;" onclick="resetAll()">全リセット</button>
   </div>
 
   <div id="scheduleList"></div>
 
-  <!-- 予定追加モーダル -->
-  <div class="modal" id="addModal">
+  <!-- 予定追加/編集モーダル -->
+  <div class="modal" id="eventModal">
     <div class="modal-content">
       <div class="modal-header">
-        <h3>新しい予定を追加</h3>
-        <button class="close-btn" onclick="closeModal('addModal')">✕</button>
+        <h3 id="modalTitle">新しい予定を追加</h3>
+        <button class="close-btn" onclick="closeModal('eventModal')">✕</button>
       </div>
+      <input type="hidden" id="editEventId">
       <div class="form-group">
         <label>予定のタイトル</label>
         <input type="text" id="eventTitle" placeholder="会議、移動など">
@@ -215,7 +216,7 @@
         </div>
       </div>
       <div style="margin-top:20px;">
-        <button class="btn btn-primary" style="width:100%;" onclick="addEvent()">追加</button>
+        <button class="btn btn-primary" style="width:100%;" id="saveEventBtn" onclick="saveEvent()">追加</button>
       </div>
     </div>
   </div>
@@ -250,9 +251,33 @@
     let alertedSet = new Set();
 
     function openAddModal() {
+      document.getElementById('editEventId').value = '';
+      document.getElementById('modalTitle').textContent = '新しい予定を追加';
+      document.getElementById('saveEventBtn').textContent = '追加';
+      document.getElementById('eventTitle').value = '';
+      document.getElementById('eventTime').value = '';
       document.getElementById('yellowThreshold').value = userSettings.defaultYellow;
       document.getElementById('redThreshold').value = userSettings.defaultRed;
-      document.getElementById('addModal').style.display = 'flex';
+      document.getElementById('eventModal').style.display = 'flex';
+    }
+
+    function openEditModal(id) {
+      const item = events.find(e => e.id === id);
+      if (!item) return;
+
+      document.getElementById('editEventId').value = item.id;
+      document.getElementById('modalTitle').textContent = '予定を編集';
+      document.getElementById('saveEventBtn').textContent = '保存';
+      document.getElementById('eventTitle').value = item.title;
+      
+      // 日時を input[type="datetime-local"] のフォーマットに変換 (YYYY-MM-DDTHH:mm)
+      const d = new Date(item.targetTime);
+      const localIso = new Date(d.getTime() - d.getTimezoneOffset() * 60000).toISOString().slice(0, 16);
+      document.getElementById('eventTime').value = localIso;
+      
+      document.getElementById('yellowThreshold').value = item.yellowMin;
+      document.getElementById('redThreshold').value = item.redMin;
+      document.getElementById('eventModal').style.display = 'flex';
     }
 
     function openSettingsModal() {
@@ -274,7 +299,8 @@
       alert('設定を保存しました');
     }
 
-    function addEvent() {
+    function saveEvent() {
+      const id = document.getElementById('editEventId').value;
       const title = document.getElementById('eventTitle').value;
       const time = document.getElementById('eventTime').value;
       const yellow = parseInt(document.getElementById('yellowThreshold').value) || userSettings.defaultYellow;
@@ -285,21 +311,31 @@
         return;
       }
 
-      events.push({
-        id: Date.now(),
-        title: title,
-        targetTime: new Date(time).getTime(),
-        yellowMin: yellow,
-        redMin: red
-      });
+      const targetTime = new Date(time).getTime();
+
+      if (id) {
+        // 編集モード
+        const index = events.findIndex(e => e.id == id);
+        if (index !== -1) {
+          events[index] = { id: Number(id), title, targetTime, yellowMin: yellow, redMin: red };
+        }
+      } else {
+        // 新規追加モード
+        events.push({
+          id: Date.now(),
+          title: title,
+          targetTime: targetTime,
+          yellowMin: yellow,
+          redMin: red
+        });
+      }
 
       saveAndRefresh();
-      document.getElementById('eventTitle').value = '';
-      document.getElementById('eventTime').value = '';
-      closeModal('addModal');
+      closeModal('eventModal');
     }
 
-    function deleteEvent(id) {
+    function deleteEvent(id, event) {
+      event.stopPropagation(); // 編集モーダルの起動を防止
       events = events.filter(e => e.id !== id);
       saveAndRefresh();
     }
@@ -326,6 +362,54 @@
         osc.start();
         osc.stop(ctx.currentTime + 0.3);
       } catch(e) {}
+    }
+
+    // 年・月・日・時間・分・秒を柔軟に計算する関数
+    function formatTimeRemaining(targetTime, nowTime) {
+      const diffSec = Math.floor((targetTime - nowTime) / 1000);
+      if (diffSec <= 0) return '時間になりました！';
+
+      let targetDate = new Date(targetTime);
+      let nowDate = new Date(nowTime);
+
+      let years = targetDate.getFullYear() - nowDate.getFullYear();
+      let months = targetDate.getMonth() - nowDate.getMonth();
+      let days = targetDate.getDate() - nowDate.getDate();
+      let hours = targetDate.getHours() - nowDate.getHours();
+      let minutes = targetDate.getMinutes() - nowDate.getMinutes();
+      let seconds = targetDate.getSeconds() - nowDate.getSeconds();
+
+      if (seconds < 0) {
+        seconds += 60;
+        minutes--;
+      }
+      if (minutes < 0) {
+        minutes += 60;
+        hours--;
+      }
+      if (hours < 0) {
+        hours += 24;
+        days--;
+      }
+      if (days < 0) {
+        const prevMonthLastDay = new Date(targetDate.getFullYear(), targetDate.getMonth(), 0).getDate();
+        days += prevMonthLastDay;
+        months--;
+      }
+      if (months < 0) {
+        months += 12;
+        years--;
+      }
+
+      let parts = [];
+      if (years > 0) parts.push(`${years}年`);
+      if (months > 0 || years > 0) parts.push(`${months}ヶ月`);
+      if (days > 0 || months > 0 || years > 0) parts.push(`${days}日`);
+      if (hours > 0 || days > 0 || months > 0 || years > 0) parts.push(`${hours}時間`);
+      if (minutes > 0 || hours > 0 || days > 0 || months > 0 || years > 0) parts.push(`${minutes}分`);
+      parts.push(`${seconds}秒`);
+
+      return `残り ${parts.join(' ')}`;
     }
 
     function updateUI() {
@@ -359,20 +443,17 @@
         let progressPercent = Math.max(0, Math.min(100, (remainingMin / item.yellowMin) * 100));
         if (remainingMin <= 0) progressPercent = 0;
 
-        const mins = Math.floor(Math.max(0, remainingSec) / 60);
-        const secs = Math.max(0, remainingSec) % 60;
-        const timeText = remainingSec > 0 
-          ? `残り ${mins}分 ${secs}秒` 
-          : '時間になりました！';
+        const timeText = formatTimeRemaining(item.targetTime, now);
 
         const card = document.createElement('div');
         card.className = `card ${cardClass}`;
+        card.onclick = () => openEditModal(item.id);
         card.innerHTML = `
           <div class="card-header">
             <span class="card-title">${item.title}</span>
-            <button class="btn btn-danger" style="padding: 2px 8px; font-size: 0.75rem;" onclick="deleteEvent(${item.id})">削除</button>
+            <button class="btn btn-danger" style="padding: 2px 8px; font-size: 0.75rem;" onclick="deleteEvent(${item.id}, event)">削除</button>
           </div>
-          <div>${timeText}</div>
+          <div style="font-size: 0.95rem;">${timeText}</div>
           <div class="progress-bar-container">
             <div class="progress-bar" style="width: ${progressPercent}%;"></div>
           </div>
