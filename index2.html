@@ -1,0 +1,360 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>スケジュール管理</title>
+  <style>
+    :root {
+      --bg-blue: #2196F3;
+      --bg-yellow: #FFC107;
+      --bg-red: #F44336;
+    }
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+      margin: 0;
+      padding: 16px;
+      background-color: #f0f2f5; /* ライトグレー */
+      color: #333;
+    }
+    
+    /* ヘッダー周り */
+    .header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 16px;
+    }
+    .header h1 {
+      font-size: 1.4rem;
+      margin: 0;
+    }
+    .header-actions {
+      display: flex;
+      gap: 8px;
+    }
+    .icon-btn {
+      background: #fff;
+      border: 1px solid #ccc;
+      border-radius: 50%;
+      width: 36px;
+      height: 36px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 1.2rem;
+      font-weight: bold;
+      cursor: pointer;
+      box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+    }
+    .icon-btn:active {
+      background: #eee;
+    }
+
+    .btn {
+      padding: 10px 16px;
+      border-radius: 8px;
+      border: none;
+      font-weight: bold;
+      cursor: pointer;
+      font-size: 0.95rem;
+    }
+    .btn-primary { background: #2196F3; color: #fff; }
+    .btn-danger { background: #ff5252; color: #fff; }
+    .btn-secondary { background: #e0e0e0; color: #333; }
+    
+    /* モーダル共通 */
+    .modal {
+      display: none;
+      position: fixed;
+      top: 0; left: 0; width: 100%; height: 100%;
+      background: rgba(0,0,0,0.5);
+      align-items: center; justify-content: center;
+      z-index: 1000;
+    }
+    .modal-content {
+      background: #fff;
+      padding: 20px;
+      border-radius: 12px;
+      width: 90%;
+      max-width: 400px;
+      box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+    }
+    .form-group {
+      margin-bottom: 12px;
+    }
+    .form-group label {
+      display: block;
+      font-size: 0.85rem;
+      margin-bottom: 4px;
+      color: #666;
+    }
+    input[type="text"], input[type="datetime-local"] {
+      width: 100%;
+      padding: 8px;
+      box-sizing: border-box;
+      border: 1px solid #ccc;
+      border-radius: 6px;
+      font-size: 1rem;
+    }
+    input[type="number"].num-3digit {
+      width: 65px;
+      padding: 6px 4px;
+      text-align: center;
+      border: 1px solid #ccc;
+      border-radius: 6px;
+      font-size: 1rem;
+    }
+    
+    /* 予定カード */
+    .card {
+      border-radius: 12px;
+      padding: 16px;
+      margin-bottom: 12px;
+      color: #fff;
+      box-shadow: 0 2px 6px rgba(0,0,0,0.08);
+      transition: background-color 0.5s ease;
+    }
+    .card-blue { background-color: var(--bg-blue); }
+    .card-yellow { background-color: var(--bg-yellow); color: #333; }
+    .card-red { background-color: var(--bg-red); }
+
+    .card-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 8px;
+    }
+    .card-title {
+      font-size: 1.1rem;
+      font-weight: bold;
+    }
+    .progress-bar-container {
+      background: rgba(255, 255, 255, 0.4);
+      border-radius: 8px;
+      height: 12px;
+      width: 100%;
+      overflow: hidden;
+      margin-top: 8px;
+    }
+    .progress-bar {
+      height: 100%;
+      background-color: #fff;
+      transition: width 0.5s linear;
+    }
+    .top-actions {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 12px;
+    }
+  </style>
+</head>
+<body>
+
+  <div class="header">
+    <h1>スケジュール管理</h1>
+    <div class="header-actions">
+      <button class="icon-btn" onclick="openAddModal()" title="新しい予定を追加">＋</button>
+      <button class="icon-btn" onclick="openSettingsModal()" title="設定">…</button>
+    </div>
+  </div>
+
+  <div class="top-actions">
+    <span style="font-size: 0.85rem; color: #666;">※期限が近い順</span>
+    <button class="btn btn-danger" style="padding: 4px 8px; font-size: 0.8rem;" onclick="resetAll()">全リセット</button>
+  </div>
+
+  <div id="scheduleList"></div>
+
+  <!-- 予定追加モーダル -->
+  <div class="modal" id="addModal">
+    <div class="modal-content">
+      <h3 style="margin-top:0;">新しい予定を追加</h3>
+      <div class="form-group">
+        <label>予定のタイトル</label>
+        <input type="text" id="eventTitle" placeholder="会議、移動など">
+      </div>
+      <div class="form-group">
+        <label>日時</label>
+        <input type="datetime-local" id="eventTime">
+      </div>
+      <div class="form-group">
+        <label>アラート設定（色が変わる時間）</label>
+        <div>
+          黄色: <input type="number" id="yellowThreshold" class="num-3digit" min="10" step="10"> 分前　
+          赤色: <input type="number" id="redThreshold" class="num-3digit" min="10" step="10"> 分前
+        </div>
+      </div>
+      <div style="display:flex; gap:8px; margin-top:20px;">
+        <button class="btn btn-secondary" style="flex:1;" onclick="closeModal('addModal')">キャンセル</button>
+        <button class="btn btn-primary" style="flex:1;" onclick="addEvent()">追加</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- デフォルト設定モーダル -->
+  <div class="modal" id="settingsModal">
+    <div class="modal-content">
+      <h3 style="margin-top:0;">デフォルトアラート設定</h3>
+      <p style="font-size: 0.85rem; color: #666; margin-bottom: 16px;">
+        新しく予定を追加する際の初期アラート時間を設定できます。
+      </p>
+      <div class="form-group">
+        <label>初期設定（黄色）</label>
+        <input type="number" id="defaultYellow" class="num-3digit" min="10" step="10"> 分前
+      </div>
+      <div class="form-group">
+        <label>初期設定（赤色）</label>
+        <input type="number" id="defaultRed" class="num-3digit" min="10" step="10"> 分前
+      </div>
+      <div style="display:flex; gap:8px; margin-top:20px;">
+        <button class="btn btn-secondary" style="flex:1;" onclick="closeModal('settingsModal')">キャンセル</button>
+        <button class="btn btn-primary" style="flex:1;" onclick="saveSettings()">保存</button>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    let events = JSON.parse(localStorage.getItem('my_events') || '[]');
+    let userSettings = JSON.parse(localStorage.getItem('my_settings') || '{"defaultYellow": 60, "defaultRed": 30}');
+    let alertedSet = new Set();
+
+    function openAddModal() {
+      // デフォルト設定の値をセット
+      document.getElementById('yellowThreshold').value = userSettings.defaultYellow;
+      document.getElementById('redThreshold').value = userSettings.defaultRed;
+      document.getElementById('addModal').style.display = 'flex';
+    }
+
+    function openSettingsModal() {
+      document.getElementById('defaultYellow').value = userSettings.defaultYellow;
+      document.getElementById('defaultRed').value = userSettings.defaultRed;
+      document.getElementById('settingsModal').style.display = 'flex';
+    }
+
+    function closeModal(id) {
+      document.getElementById(id).style.display = 'none';
+    }
+
+    function saveSettings() {
+      const yellow = parseInt(document.getElementById('defaultYellow').value) || 60;
+      const red = parseInt(document.getElementById('defaultRed').value) || 30;
+      userSettings = { defaultYellow: yellow, defaultRed: red };
+      localStorage.setItem('my_settings', JSON.stringify(userSettings));
+      closeModal('settingsModal');
+      alert('設定を保存しました');
+    }
+
+    function addEvent() {
+      const title = document.getElementById('eventTitle').value;
+      const time = document.getElementById('eventTime').value;
+      const yellow = parseInt(document.getElementById('yellowThreshold').value) || userSettings.defaultYellow;
+      const red = parseInt(document.getElementById('redThreshold').value) || userSettings.defaultRed;
+
+      if (!title || !time) {
+        alert('タイトルと日時を入力してください');
+        return;
+      }
+
+      events.push({
+        id: Date.now(),
+        title: title,
+        targetTime: new Date(time).getTime(),
+        yellowMin: yellow,
+        redMin: red
+      });
+
+      saveAndRefresh();
+      document.getElementById('eventTitle').value = '';
+      document.getElementById('eventTime').value = '';
+      closeModal('addModal');
+    }
+
+    function deleteEvent(id) {
+      events = events.filter(e => e.id !== id);
+      saveAndRefresh();
+    }
+
+    function resetAll() {
+      if (confirm('すべての予定を削除しますか？')) {
+        events = [];
+        saveAndRefresh();
+      }
+    }
+
+    function saveAndRefresh() {
+      localStorage.setItem('my_events', JSON.stringify(events));
+      updateUI();
+    }
+
+    function playBeep() {
+      try {
+        const ctx = new (window.AudioContext || window.webkitAudioContext)();
+        const osc = ctx.createOscillator();
+        osc.type = 'sine';
+        osc.frequency.setValueAtTime(880, ctx.currentTime);
+        osc.connect(ctx.destination);
+        osc.start();
+        osc.stop(ctx.currentTime + 0.3);
+      } catch(e) {}
+    }
+
+    function updateUI() {
+      const list = document.getElementById('scheduleList');
+      list.innerHTML = '';
+
+      const now = new Date().getTime();
+      events.sort((a, b) => a.targetTime - b.targetTime);
+
+      if (events.length === 0) {
+        list.innerHTML = '<p style="text-align:center; color:#999; margin-top:40px;">予定はありません<br><small>右上の「＋」から追加できます</small></p>';
+        return;
+      }
+
+      events.forEach(item => {
+        const remainingSec = Math.floor((item.targetTime - now) / 1000);
+        const remainingMin = remainingSec / 60;
+
+        let cardClass = 'card-blue';
+        if (remainingMin <= item.redMin) {
+          cardClass = 'card-red';
+        } else if (remainingMin <= item.yellowMin) {
+          cardClass = 'card-yellow';
+        }
+
+        if (remainingSec <= 0 && !alertedSet.has(item.id)) {
+          playBeep();
+          alertedSet.add(item.id);
+        }
+
+        let progressPercent = Math.max(0, Math.min(100, (remainingMin / item.yellowMin) * 100));
+        if (remainingMin <= 0) progressPercent = 0;
+
+        const mins = Math.floor(Math.max(0, remainingSec) / 60);
+        const secs = Math.max(0, remainingSec) % 60;
+        const timeText = remainingSec > 0 
+          ? `残り ${mins}分 ${secs}秒` 
+          : '時間になりました！';
+
+        const card = document.createElement('div');
+        card.className = `card ${cardClass}`;
+        card.innerHTML = `
+          <div class="card-header">
+            <span class="card-title">${item.title}</span>
+            <button class="btn btn-danger" style="padding: 2px 8px; font-size: 0.75rem;" onclick="deleteEvent(${item.id})">削除</button>
+          </div>
+          <div>${timeText}</div>
+          <div class="progress-bar-container">
+            <div class="progress-bar" style="width: ${progressPercent}%;"></div>
+          </div>
+        `;
+        list.appendChild(card);
+      });
+    }
+
+    setInterval(updateUI, 1000);
+    updateUI();
+  </script>
+</body>
+</html>
