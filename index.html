@@ -1,4 +1,4 @@
-　<!DOCTYPE html>
+<!DOCTYPE html>
 <html lang="ja">
 <head>
   <meta charset="UTF-8">
@@ -79,7 +79,32 @@
       width: 90%;
       max-width: 400px;
       box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+      position: relative;
     }
+    .modal-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 16px;
+    }
+    .modal-header h3 {
+      margin: 0;
+      font-size: 1.15rem;
+    }
+    .close-btn {
+      background: none;
+      border: none;
+      font-size: 1.4rem;
+      font-weight: bold;
+      color: #888;
+      cursor: pointer;
+      padding: 0 4px;
+      line-height: 1;
+    }
+    .close-btn:active {
+      color: #333;
+    }
+
     .form-group {
       margin-bottom: 12px;
     }
@@ -170,7 +195,10 @@
   <!-- 予定追加モーダル -->
   <div class="modal" id="addModal">
     <div class="modal-content">
-      <h3 style="margin-top:0;">新しい予定を追加</h3>
+      <div class="modal-header">
+        <h3>新しい予定を追加</h3>
+        <button class="close-btn" onclick="closeModal('addModal')">✕</button>
+      </div>
       <div class="form-group">
         <label>予定のタイトル</label>
         <input type="text" id="eventTitle" placeholder="会議、移動など">
@@ -186,9 +214,8 @@
           赤色: <input type="number" id="redThreshold" class="num-3digit" min="10" step="10"> 分前
         </div>
       </div>
-      <div style="display:flex; gap:8px; margin-top:20px;">
-        <button class="btn btn-secondary" style="flex:1;" onclick="closeModal('addModal')">キャンセル</button>
-        <button class="btn btn-primary" style="flex:1;" onclick="addEvent()">追加</button>
+      <div style="margin-top:20px;">
+        <button class="btn btn-primary" style="width:100%;" onclick="addEvent()">追加</button>
       </div>
     </div>
   </div>
@@ -196,7 +223,10 @@
   <!-- デフォルト設定モーダル -->
   <div class="modal" id="settingsModal">
     <div class="modal-content">
-      <h3 style="margin-top:0;">デフォルトアラート設定</h3>
+      <div class="modal-header">
+        <h3>デフォルトアラート設定</h3>
+        <button class="close-btn" onclick="closeModal('settingsModal')">✕</button>
+      </div>
       <p style="font-size: 0.85rem; color: #666; margin-bottom: 16px;">
         新しく予定を追加する際の初期アラート時間を設定できます。
       </p>
@@ -208,9 +238,8 @@
         <label>初期設定（赤色）</label>
         <input type="number" id="defaultRed" class="num-3digit" min="10" step="10"> 分前
       </div>
-      <div style="display:flex; gap:8px; margin-top:20px;">
-        <button class="btn btn-secondary" style="flex:1;" onclick="closeModal('settingsModal')">キャンセル</button>
-        <button class="btn btn-primary" style="flex:1;" onclick="saveSettings()">保存</button>
+      <div style="margin-top:20px;">
+        <button class="btn btn-primary" style="width:100%;" onclick="saveSettings()">保存</button>
       </div>
     </div>
   </div>
@@ -221,7 +250,6 @@
     let alertedSet = new Set();
 
     function openAddModal() {
-      // デフォルト設定の値をセット
       document.getElementById('yellowThreshold').value = userSettings.defaultYellow;
       document.getElementById('redThreshold').value = userSettings.defaultRed;
       document.getElementById('addModal').style.display = 'flex';
