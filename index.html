@@ -46,7 +46,9 @@
       cursor: pointer;
       box-shadow: 0 1px 3px rgba(0,0,0,0.1);
     }
-    .icon-btn:active { background: #eee; }
+    .icon-btn:active {
+      background: #eee;
+    }
 
     .btn {
       padding: 10px 16px;
@@ -60,6 +62,7 @@
     .btn-danger { background: #ff5252; color: #fff; }
     .btn-secondary { background: #e0e0e0; color: #333; }
     
+    /* モーダル共通 */
     .modal {
       display: none;
       position: fixed;
@@ -76,8 +79,6 @@
       max-width: 400px;
       box-shadow: 0 4px 12px rgba(0,0,0,0.15);
       position: relative;
-      max-height: 90vh;
-      overflow-y: auto;
     }
     .modal-header {
       display: flex;
@@ -99,6 +100,9 @@
       padding: 0 4px;
       line-height: 1;
     }
+    .close-btn:active {
+      color: #333;
+    }
 
     .form-group {
       margin-bottom: 12px;
@@ -109,7 +113,7 @@
       margin-bottom: 4px;
       color: #666;
     }
-    input[type="text"], input[type="datetime-local"], select {
+    input[type="text"], input[type="datetime-local"] {
       width: 100%;
       padding: 8px;
       box-sizing: border-box;
@@ -126,6 +130,7 @@
       font-size: 1rem;
     }
     
+    /* 予定カード */
     .card {
       border-radius: 12px;
       padding: 16px;
@@ -148,13 +153,6 @@
     .card-title {
       font-size: 1.1rem;
       font-weight: bold;
-    }
-    .repeat-badge {
-      font-size: 0.75rem;
-      background: rgba(255,255,255,0.3);
-      padding: 2px 6px;
-      border-radius: 4px;
-      margin-left: 6px;
     }
     .progress-bar-container {
       background: rgba(255, 255, 255, 0.4);
@@ -202,41 +200,14 @@
         <button class="close-btn" onclick="closeModal('eventModal')">✕</button>
       </div>
       <input type="hidden" id="editEventId">
-      
       <div class="form-group">
         <label>予定のタイトル</label>
-        <input type="text" id="eventTitle" placeholder="会議、ゴミ出しなど">
+        <input type="text" id="eventTitle" placeholder="会議、移動など">
       </div>
-      
       <div class="form-group">
         <label>日時</label>
         <input type="datetime-local" id="eventTime">
       </div>
-
-      <div class="form-group">
-        <label>繰り返しの設定</label>
-        <select id="repeatType" onchange="toggleRepeatOptions()">
-          <option value="none">繰り返しなし</option>
-          <option value="daily">毎日</option>
-          <option value="weekly">1週間ごと（同じ曜日）</option>
-          <option value="monthly">毎月（同じ日）</option>
-        </select>
-      </div>
-
-      <div id="repeatOptions" style="display:none; background:#f9f9f9; padding:10px; border-radius:6px; margin-bottom:12px;">
-        <div class="form-group" style="margin-bottom:8px;">
-          <label>次回表示のタイミング</label>
-          <select id="repeatTiming" onchange="toggleIntervalInput()">
-            <option value="immediate">時間になったらすぐ次の予定へ</option>
-            <option value="interval">指定時間後に表示（インターバル）</option>
-          </select>
-        </div>
-        <div class="form-group" id="intervalGroup" style="display:none; margin-bottom:0;">
-          <label>インターバル時間</label>
-          <input type="number" id="repeatInterval" class="num-3digit" value="30" min="1" step="5"> 分後に次の予定を表示
-        </div>
-      </div>
-
       <div class="form-group">
         <label>アラート設定（色が変わる時間）</label>
         <div>
@@ -244,7 +215,6 @@
           赤色: <input type="number" id="redThreshold" class="num-3digit" min="10" step="10"> 分前
         </div>
       </div>
-
       <div style="margin-top:20px;">
         <button class="btn btn-primary" style="width:100%;" id="saveEventBtn" onclick="saveEvent()">追加</button>
       </div>
@@ -276,28 +246,9 @@
   </div>
 
   <script>
-    let events = [];
-    try {
-      events = JSON.parse(localStorage.getItem('my_events')) || [];
-    } catch(e) { events = []; }
-
-    let userSettings = { defaultYellow: 60, defaultRed: 30 };
-    try {
-      const s = JSON.parse(localStorage.getItem('my_settings'));
-      if (s) userSettings = s;
-    } catch(e) {}
-
+    let events = JSON.parse(localStorage.getItem('my_events') || '[]');
+    let userSettings = JSON.parse(localStorage.getItem('my_settings') || '{"defaultYellow": 60, "defaultRed": 30}');
     let alertedSet = new Set();
-
-    function toggleRepeatOptions() {
-      const type = document.getElementById('repeatType').value;
-      document.getElementById('repeatOptions').style.display = (type === 'none') ? 'none' : 'block';
-    }
-
-    function toggleIntervalInput() {
-      const timing = document.getElementById('repeatTiming').value;
-      document.getElementById('intervalGroup').style.display = (timing === 'interval') ? 'block' : 'none';
-    }
 
     function openAddModal() {
       document.getElementById('editEventId').value = '';
@@ -305,14 +256,8 @@
       document.getElementById('saveEventBtn').textContent = '追加';
       document.getElementById('eventTitle').value = '';
       document.getElementById('eventTime').value = '';
-      document.getElementById('repeatType').value = 'none';
-      document.getElementById('repeatTiming').value = 'immediate';
-      document.getElementById('repeatInterval').value = 30;
-      toggleRepeatOptions();
-      toggleIntervalInput();
-
-      document.getElementById('yellowThreshold').value = userSettings.defaultYellow || 60;
-      document.getElementById('redThreshold').value = userSettings.defaultRed || 30;
+      document.getElementById('yellowThreshold').value = userSettings.defaultYellow;
+      document.getElementById('redThreshold').value = userSettings.defaultRed;
       document.getElementById('eventModal').style.display = 'flex';
     }
 
@@ -323,30 +268,21 @@
       document.getElementById('editEventId').value = item.id;
       document.getElementById('modalTitle').textContent = '予定を編集';
       document.getElementById('saveEventBtn').textContent = '保存';
-      document.getElementById('eventTitle').value = item.title || '';
+      document.getElementById('eventTitle').value = item.title;
       
-      if (item.targetTime) {
-        const d = new Date(item.targetTime);
-        const localIso = new Date(d.getTime() - d.getTimezoneOffset() * 60000).toISOString().slice(0, 16);
-        document.getElementById('eventTime').value = localIso;
-      } else {
-        document.getElementById('eventTime').value = '';
-      }
+      // 日時を input[type="datetime-local"] のフォーマットに変換 (YYYY-MM-DDTHH:mm)
+      const d = new Date(item.targetTime);
+      const localIso = new Date(d.getTime() - d.getTimezoneOffset() * 60000).toISOString().slice(0, 16);
+      document.getElementById('eventTime').value = localIso;
       
-      document.getElementById('repeatType').value = item.repeatType || 'none';
-      document.getElementById('repeatTiming').value = item.repeatTiming || 'immediate';
-      document.getElementById('repeatInterval').value = item.repeatInterval || 30;
-      toggleRepeatOptions();
-      toggleIntervalInput();
-
-      document.getElementById('yellowThreshold').value = item.yellowMin || 60;
-      document.getElementById('redThreshold').value = item.redMin || 30;
+      document.getElementById('yellowThreshold').value = item.yellowMin;
+      document.getElementById('redThreshold').value = item.redMin;
       document.getElementById('eventModal').style.display = 'flex';
     }
 
     function openSettingsModal() {
-      document.getElementById('defaultYellow').value = userSettings.defaultYellow || 60;
-      document.getElementById('defaultRed').value = userSettings.defaultRed || 30;
+      document.getElementById('defaultYellow').value = userSettings.defaultYellow;
+      document.getElementById('defaultRed').value = userSettings.defaultRed;
       document.getElementById('settingsModal').style.display = 'flex';
     }
 
@@ -365,49 +301,32 @@
 
     function saveEvent() {
       const id = document.getElementById('editEventId').value;
-      const title = document.getElementById('eventTitle').value.trim();
-      const timeVal = document.getElementById('eventTime').value;
-      const repeatType = document.getElementById('repeatType').value;
-      const repeatTiming = document.getElementById('repeatTiming').value;
-      const repeatInterval = parseInt(document.getElementById('repeatInterval').value) || 0;
-      const yellow = parseInt(document.getElementById('yellowThreshold').value) || userSettings.defaultYellow || 60;
-      const red = parseInt(document.getElementById('redThreshold').value) || userSettings.defaultRed || 30;
+      const title = document.getElementById('eventTitle').value;
+      const time = document.getElementById('eventTime').value;
+      const yellow = parseInt(document.getElementById('yellowThreshold').value) || userSettings.defaultYellow;
+      const red = parseInt(document.getElementById('redThreshold').value) || userSettings.defaultRed;
 
-      if (!title) {
-        alert('タイトルを入力してください');
-        return;
-      }
-      if (!timeVal) {
-        alert('日時を選択してください');
+      if (!title || !time) {
+        alert('タイトルと日時を入力してください');
         return;
       }
 
-      const targetTime = new Date(timeVal).getTime();
-      if (isNaN(targetTime)) {
-        alert('正しい日時を選択してください');
-        return;
-      }
-
-      const eventData = {
-        title: title,
-        targetTime: targetTime,
-        repeatType: repeatType,
-        repeatTiming: repeatTiming,
-        repeatInterval: repeatInterval,
-        yellowMin: yellow,
-        redMin: red,
-        displayStartTime: targetTime
-      };
+      const targetTime = new Date(time).getTime();
 
       if (id) {
+        // 編集モード
         const index = events.findIndex(e => e.id == id);
         if (index !== -1) {
-          events[index] = { id: Number(id), ...eventData };
+          events[index] = { id: Number(id), title, targetTime, yellowMin: yellow, redMin: red };
         }
       } else {
+        // 新規追加モード
         events.push({
           id: Date.now(),
-          ...eventData
+          title: title,
+          targetTime: targetTime,
+          yellowMin: yellow,
+          redMin: red
         });
       }
 
@@ -416,7 +335,7 @@
     }
 
     function deleteEvent(id, event) {
-      if (event) event.stopPropagation();
+      event.stopPropagation(); // 編集モーダルの起動を防止
       events = events.filter(e => e.id !== id);
       saveAndRefresh();
     }
@@ -445,18 +364,7 @@
       } catch(e) {}
     }
 
-    function calculateNextTarget(currentTime, repeatType) {
-      const d = new Date(currentTime);
-      if (repeatType === 'daily') {
-        d.setDate(d.getDate() + 1);
-      } else if (repeatType === 'weekly') {
-        d.setDate(d.getDate() + 7);
-      } else if (repeatType === 'monthly') {
-        d.setMonth(d.getMonth() + 1);
-      }
-      return d.getTime();
-    }
-
+    // 年・月・日・時間・分・秒を柔軟に計算する関数
     function formatTimeRemaining(targetTime, nowTime) {
       const diffSec = Math.floor((targetTime - nowTime) / 1000);
       if (diffSec <= 0) return '時間になりました！';
@@ -471,15 +379,27 @@
       let minutes = targetDate.getMinutes() - nowDate.getMinutes();
       let seconds = targetDate.getSeconds() - nowDate.getSeconds();
 
-      if (seconds < 0) { seconds += 60; minutes--; }
-      if (minutes < 0) { minutes += 60; hours--; }
-      if (hours < 0) { hours += 24; days--; }
+      if (seconds < 0) {
+        seconds += 60;
+        minutes--;
+      }
+      if (minutes < 0) {
+        minutes += 60;
+        hours--;
+      }
+      if (hours < 0) {
+        hours += 24;
+        days--;
+      }
       if (days < 0) {
         const prevMonthLastDay = new Date(targetDate.getFullYear(), targetDate.getMonth(), 0).getDate();
         days += prevMonthLastDay;
         months--;
       }
-      if (months < 0) { months += 12; years--; }
+      if (months < 0) {
+        months += 12;
+        years--;
+      }
 
       let parts = [];
       if (years > 0) parts.push(`${years}年`);
@@ -494,55 +414,24 @@
 
     function updateUI() {
       const list = document.getElementById('scheduleList');
-      if (!list) return;
       list.innerHTML = '';
 
       const now = new Date().getTime();
-      let needSave = false;
+      events.sort((a, b) => a.targetTime - b.targetTime);
 
-      events.forEach(item => {
-        if (item.repeatType && item.repeatType !== 'none') {
-          if (now >= item.targetTime) {
-            const nextTarget = calculateNextTarget(item.targetTime, item.repeatType);
-            item.targetTime = nextTarget;
-
-            if (item.repeatTiming === 'interval') {
-              const intervalMs = (item.repeatInterval || 0) * 60 * 1000;
-              item.displayStartTime = now + intervalMs;
-            } else {
-              item.displayStartTime = now;
-            }
-            needSave = true;
-          }
-        }
-      });
-
-      if (needSave) {
-        localStorage.setItem('my_events', JSON.stringify(events));
-      }
-
-      const visibleEvents = events.filter(e => {
-        if (e.displayStartTime && now < e.displayStartTime) {
-          return false;
-        }
-        return true;
-      });
-
-      visibleEvents.sort((a, b) => a.targetTime - b.targetTime);
-
-      if (visibleEvents.length === 0) {
+      if (events.length === 0) {
         list.innerHTML = '<p style="text-align:center; color:#999; margin-top:40px;">予定はありません<br><small>右上の「＋」から追加できます</small></p>';
         return;
       }
 
-      visibleEvents.forEach(item => {
+      events.forEach(item => {
         const remainingSec = Math.floor((item.targetTime - now) / 1000);
         const remainingMin = remainingSec / 60;
 
         let cardClass = 'card-blue';
-        if (remainingMin <= (item.redMin || 30)) {
+        if (remainingMin <= item.redMin) {
           cardClass = 'card-red';
-        } else if (remainingMin <= (item.yellowMin || 60)) {
+        } else if (remainingMin <= item.yellowMin) {
           cardClass = 'card-yellow';
         }
 
@@ -551,25 +440,17 @@
           alertedSet.add(item.id);
         }
 
-        let progressPercent = Math.max(0, Math.min(100, (remainingMin / (item.yellowMin || 60)) * 100));
+        let progressPercent = Math.max(0, Math.min(100, (remainingMin / item.yellowMin) * 100));
         if (remainingMin <= 0) progressPercent = 0;
 
         const timeText = formatTimeRemaining(item.targetTime, now);
-
-        let repeatBadgeText = '';
-        if (item.repeatType === 'daily') repeatBadgeText = '毎日';
-        else if (item.repeatType === 'weekly') repeatBadgeText = '毎週';
-        else if (item.repeatType === 'monthly') repeatBadgeText = '毎月';
 
         const card = document.createElement('div');
         card.className = `card ${cardClass}`;
         card.onclick = () => openEditModal(item.id);
         card.innerHTML = `
           <div class="card-header">
-            <div>
-              <span class="card-title">${item.title}</span>
-              ${repeatBadgeText ? `<span class="repeat-badge">🔁 ${repeatBadgeText}</span>` : ''}
-            </div>
+            <span class="card-title">${item.title}</span>
             <button class="btn btn-danger" style="padding: 2px 8px; font-size: 0.75rem;" onclick="deleteEvent(${item.id}, event)">削除</button>
           </div>
           <div style="font-size: 0.95rem;">${timeText}</div>
